@@ -2,9 +2,11 @@ package common;
 
 import java.util.LinkedList;
 
+import javafx.geometry.Point2D;
 import javafx.scene.layout.Pane;
 import javafx.scene.paint.Color;
 import javafx.scene.shape.Line;
+import javafx.scene.shape.StrokeLineCap;
 
 /**
  * @author Ben
@@ -15,6 +17,7 @@ import javafx.scene.shape.Line;
 public class LineManager {
 	private LinkedList<ControlPoint> controlPoints;
 	private LinkedList<LinkedList<Line>> lineLists;
+	private LinkedList<Line> bezierCurve;
 	private Pane pane;
 	
 	
@@ -28,6 +31,7 @@ public class LineManager {
 		this.controlPoints = controlPoints;
 		lineLists = new LinkedList<>();
 		lineLists.add(new LinkedList<Line>());
+		bezierCurve = new LinkedList<Line>();
 		this.pane = pane;
 	}
 	
@@ -57,7 +61,11 @@ public class LineManager {
 	public void addLines(){
 		if (controlPoints.size() == 1) return;
 		
-		lineLists.add(new LinkedList<Line>());
+		if (lineLists.size() < controlPoints.size()-1){
+		    lineLists.add(new LinkedList<Line>());
+		}
+		
+		
 		int numControlLines = controlPoints.size() - 1;
 		
 		for (int i = 0; i < numControlLines; i++){
@@ -65,12 +73,13 @@ public class LineManager {
 			if (i == 0){
 				line.setStroke(Color.LIGHTGRAY);
 				line.setStrokeWidth(2);
+				line.setVisible(true);
 				pane.getChildren().add(line);
 				line.toBack();
 			} else {
-				double hue = 360 * (((i-1)%10)/10d);
-				double sat = .6;
-				double bri = 1;
+				double hue = 360 * (((i-1)%controlPoints.size())/(double)controlPoints.size());
+				double sat = .4;
+				double bri = .8;
 				line.setStroke(Color.hsb(hue, sat, bri));
 				line.setStrokeWidth(2);
 				pane.getChildren().add(line);
@@ -106,11 +115,49 @@ public class LineManager {
 	}
 	
 	/**
-	 * calculates the subLine positions based off of the given percent
+	 * Hides only the main lines
+	 */
+	public void hidePrimaryLines(){
+		LinkedList<Line> primary = lineLists.get(0);
+		for (Line l : primary){
+			l.setVisible(false);
+		}
+	}
+	
+	/**
+	 * Shows the bezier curve
+	 */
+	public void showBezierCurve(){
+		for (Line l: bezierCurve){
+			l.setVisible(true);
+		}
+	}
+	
+	public void hideBezierCurve(){
+		for (Line l: bezierCurve){
+			l.setVisible(false);
+		}
+	}
+	
+	
+	/**
+	* calculates the subLine positions based off of the given percent
 	 * 
 	 * @param percent - the percent of the line to traverse
+	 * @return the point of the final position of the bezier curve
 	 */
-	public void calculateSubLinePositions(double percent){
+	public Point2D calculateSubLinePositions(double percent){
+//		if (percent < .5){
+//			percent *= percent;
+//			percent *= 2;
+//			
+//		} else {
+//			percent = (percent - 1);
+//			percent *= percent;
+//			percent *= -2;
+//			percent += 1;
+//		}
+		
 		for (int i = 1; i < lineLists.size(); i++){
 			LinkedList<Line> parent = lineLists.get(i-1);
 			LinkedList<Line> child = lineLists.get(i);
@@ -144,6 +191,61 @@ public class LineManager {
 				cLine.toBack();
 			}
 		}
+		
+		if (lineLists.getLast().size() == 0) return null;
+		
+		Line line = lineLists.getLast().get(0);
+		
+		double x = line.getStartX() + (line.getEndX() - line.getStartX())/2;
+		double y = line.getStartY() + (line.getEndY() - line.getStartY())/2;
+		
+		double cuttoff = bezierCurve.size()*percent;
+		
+		//TODO
+//		for (int i = 0; i < bezierCurve.size(); i++){
+//			if (i < cuttoff) bezierCurve.get(i).setVisible(true);
+//			else bezierCurve.get(i).setVisible(false);
+//		}
+		
+		return new Point2D(x, y);
+	}
+	
+	/**
+	 * calculates the bezier curve for the given point
+	 * configuration given a number of survey points
+	 * 
+	 * @param surveyPoints
+	 */
+	public void calculateBezierCurve(double surveyPoints){
+		if (controlPoints.size() < 2) return;
+		
+		for (Line l : bezierCurve){
+			pane.getChildren().remove(l);
+		}
+		
+		bezierCurve.clear();
+		
+		Point2D last = calculateSubLinePositions(0);
+		
+		for (int i = 0; i <= surveyPoints; i++){
+			double percent = i/surveyPoints;
+			Point2D current = calculateSubLinePositions(percent);
+			Line line = new Line();
+			line.setStroke(Color.RED);
+			line.setStrokeWidth(4);
+			line.setStrokeLineCap(StrokeLineCap.ROUND);
+			
+			line.setStartX(last.getX());
+			line.setStartY(last.getY());
+			line.setEndX(current.getX());
+			line.setEndY(current.getY());
+			
+			last = current;
+			
+			line.setVisible(false);
+			bezierCurve.add(line);
+			pane.getChildren().add(line);
+		}
 	}
 	
 	/**
@@ -156,6 +258,11 @@ public class LineManager {
 			}
 			list.clear();
 		}
+		for (Line l : bezierCurve){
+			pane.getChildren().remove(l);
+		}
+		bezierCurve.clear();
+		
 		lineLists.clear();
 		lineLists.add(new LinkedList<Line>());
 	}
