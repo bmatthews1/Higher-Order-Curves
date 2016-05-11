@@ -3,13 +3,17 @@ package visualizations;
 import java.util.LinkedList;
 
 import common.ControlPoint;
-import common.PointManager;
+import common.LineManager;
 import javafx.application.Application;
+import javafx.beans.value.ChangeListener;
+import javafx.beans.value.ObservableValue;
 import javafx.event.ActionEvent;
 import javafx.event.EventHandler;
+import javafx.geometry.Orientation;
 import javafx.scene.Cursor;
 import javafx.scene.Scene;
 import javafx.scene.control.Button;
+import javafx.scene.control.Slider;
 import javafx.scene.input.KeyEvent;
 import javafx.scene.input.MouseEvent;
 import javafx.scene.layout.Background;
@@ -33,7 +37,9 @@ public class HOCAnimation extends Application{
 	private boolean controlDown = false;
 	private Button reset;
 	private Button runAnimation;
-	private PointManager pointManager;
+	private Button showSubLines;
+	private Slider slider;
+	private LineManager lineManager;
 	
 	@Override
 	/**
@@ -55,12 +61,20 @@ public class HOCAnimation extends Application{
 		pane.setBackground(new Background(new BackgroundFill(Color.BLACK, null, null)));
 		runAnimation = new Button("run animation");
 		reset = new Button("Reset");
+		showSubLines = new Button("show sub lines");
+		slider = new Slider();
+		slider.setOrientation(Orientation.HORIZONTAL);
+		slider.setMax(1);
+		slider.setMinWidth(400);
+		slider.setValue(.5);
 		hbox.getChildren().add(runAnimation);
 		hbox.getChildren().add(reset);
+		hbox.getChildren().add(showSubLines);
+		hbox.getChildren().add(slider);
 		
 		pane.getChildren().add(hbox);
 		controlPoints = new LinkedList<>();
-		pointManager = new PointManager(controlPoints, pane);
+		lineManager = new LineManager(controlPoints, pane);
 		
 		addMethods();
 	}
@@ -94,10 +108,11 @@ public class HOCAnimation extends Application{
 			@Override
 			public void handle(MouseEvent e) {
 				if (controlDown){
-					ControlPoint c = new ControlPoint(e.getX(), e.getY(), pointManager);
+					ControlPoint c = new ControlPoint(e.getX(), e.getY(), lineManager);
 					controlPoints.add(c);
 					pane.getChildren().add(c);
-					pointManager.recalculate();
+					lineManager.addLines();
+					lineManager.recalculate();
 				}
 			}
 		});
@@ -109,7 +124,22 @@ public class HOCAnimation extends Application{
 					pane.getChildren().remove(c);
 				}
 				controlPoints.clear();
-				pointManager.recalculate();
+				lineManager.clear();
+			}
+		});
+		
+		showSubLines.setOnAction(new EventHandler<ActionEvent>(){
+			@Override
+			public void handle(ActionEvent arg0) {
+				lineManager.showSubLines();
+				lineManager.calculateSubLinePositions(.5);
+			}
+		});
+		
+		slider.valueProperty().addListener(new ChangeListener<Number>(){
+			@Override
+			public void changed(ObservableValue<? extends Number> observable, Number oldValue, Number newValue) {
+				lineManager.calculateSubLinePositions(newValue.doubleValue());
 			}
 		});
 	}

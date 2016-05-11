@@ -6,7 +6,7 @@ import javafx.event.EventHandler;
 import javafx.scene.input.MouseEvent;
 import javafx.scene.paint.Color;
 import javafx.scene.shape.Circle;
-import common.PointManager;
+import common.LineManager;
 
 /**
  * @author Ben
@@ -18,7 +18,7 @@ public class ControlPoint extends Circle{
 	private static final Color FILL = Color.GRAY;
 	private static final double RADIUS = 5;
 	
-	private PointManager pointManager;
+	private LineManager pointManager;
 	
 	/**
 	 * Constructor for the ControlPoint takes a position [x, y] and
@@ -26,11 +26,11 @@ public class ControlPoint extends Circle{
 	 * 
 	 * @param x
 	 * @param y
-	 * @param pointManager
+	 * @param lineManager
 	 */
-	public ControlPoint(double x, double y, PointManager pointManager){
+	public ControlPoint(double x, double y, LineManager lineManager){
 		
-		this.pointManager = pointManager;
+		this.pointManager = lineManager;
 		this.setFill(FILL);
 		setCenter(x, y);
 		this.setRadius(RADIUS);
@@ -66,6 +66,7 @@ public class ControlPoint extends Circle{
 		this.setCenterX(x);
 		this.setCenterY(y);
 		pointManager.recalculate();
+		pointManager.calculateSubLinePositions(.5);
 	}
 	
 	/**
