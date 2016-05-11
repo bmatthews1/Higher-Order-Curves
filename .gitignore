@@ -1,0 +1,8 @@
+.git
+bin
+.settings
+.classpath
+.project
+
+# ignore class files
+*.class
