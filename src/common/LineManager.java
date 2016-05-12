@@ -7,6 +7,7 @@ import javafx.scene.layout.Pane;
 import javafx.scene.paint.Color;
 import javafx.scene.shape.Line;
 import javafx.scene.shape.StrokeLineCap;
+import javafx.scene.shape.StrokeLineJoin;
 
 /**
  * @author Ben
@@ -18,6 +19,9 @@ public class LineManager {
 	private LinkedList<ControlPoint> controlPoints;
 	private LinkedList<LinkedList<Line>> lineLists;
 	private LinkedList<Line> bezierCurve;
+	private boolean showBezierCurve = true;
+	private boolean showPrimaryLines = true;
+	private boolean showSubLines = true;
 	private Pane pane;
 	
 	
@@ -73,7 +77,7 @@ public class LineManager {
 			if (i == 0){
 				line.setStroke(Color.LIGHTGRAY);
 				line.setStrokeWidth(2);
-				line.setVisible(true);
+				line.setVisible(showPrimaryLines);
 				pane.getChildren().add(line);
 				line.toBack();
 			} else {
@@ -82,8 +86,8 @@ public class LineManager {
 				double bri = .8;
 				line.setStroke(Color.hsb(hue, sat, bri));
 				line.setStrokeWidth(2);
+				line.setVisible(showSubLines);
 				pane.getChildren().add(line);
-				line.setVisible(false);
 			}
 			LinkedList<Line> list = lineLists.get(i);
 			list.add(line);
@@ -100,6 +104,7 @@ public class LineManager {
 				l.setVisible(true);
 			}
 		}
+		showSubLines = true;
 	}
 	
 	/**
@@ -112,6 +117,7 @@ public class LineManager {
 				l.setVisible(false);
 			}
 		}
+		showSubLines = false;
 	}
 	
 	/**
@@ -122,23 +128,57 @@ public class LineManager {
 		for (Line l : primary){
 			l.setVisible(false);
 		}
+		showPrimaryLines = false;
+	}
+	
+	/**
+	 * Shows the primary Lines
+	 */
+	public void showPrimaryLines(){
+		LinkedList<Line> primary = lineLists.get(0);
+		for (Line l: primary){
+			l.setVisible(true);
+		}
+		showPrimaryLines = true;
 	}
 	
 	/**
 	 * Shows the bezier curve
 	 */
 	public void showBezierCurve(){
+		showBezierCurve = true;
 		for (Line l: bezierCurve){
 			l.setVisible(true);
 		}
 	}
 	
+	/**
+	 * Sets the visibility of the bezier curve to false
+	 */
 	public void hideBezierCurve(){
+		showBezierCurve = false;
 		for (Line l: bezierCurve){
 			l.setVisible(false);
 		}
 	}
 	
+	/**
+	 * sets the visibility of the controlPoints to false
+	 */
+	public void showControlPoints(){
+		for (ControlPoint c : controlPoints){
+			c.setVisible(true);
+		}
+	}
+	
+	/**
+	 * sets the visibility of the controlPoints to true
+	 */
+	public void hideControlPoints(){
+		for (ControlPoint c : controlPoints){
+			c.setVisible(false);
+		}
+	}
 	
 	/**
 	* calculates the subLine positions based off of the given percent
@@ -147,16 +187,16 @@ public class LineManager {
 	 * @return the point of the final position of the bezier curve
 	 */
 	public Point2D calculateSubLinePositions(double percent){
-//		if (percent < .5){
-//			percent *= percent;
-//			percent *= 2;
-//			
-//		} else {
-//			percent = (percent - 1);
-//			percent *= percent;
-//			percent *= -2;
-//			percent += 1;
-//		}
+		if (percent < .5){
+			percent *= percent;
+			percent *= 2;
+			
+		} else {
+			percent = (percent - 1);
+			percent *= percent;
+			percent *= -2;
+			percent += 1;
+		}
 		
 		for (int i = 1; i < lineLists.size(); i++){
 			LinkedList<Line> parent = lineLists.get(i-1);
@@ -202,10 +242,12 @@ public class LineManager {
 		double cuttoff = bezierCurve.size()*percent;
 		
 		//TODO
-//		for (int i = 0; i < bezierCurve.size(); i++){
-//			if (i < cuttoff) bezierCurve.get(i).setVisible(true);
-//			else bezierCurve.get(i).setVisible(false);
-//		}
+		if (showBezierCurve){
+			for (int i = 0; i < bezierCurve.size(); i++){
+				if (i < cuttoff) bezierCurve.get(i).setVisible(true);
+				else bezierCurve.get(i).setVisible(false);
+			}	
+		}
 		
 		return new Point2D(x, y);
 	}
@@ -222,7 +264,6 @@ public class LineManager {
 		for (Line l : bezierCurve){
 			pane.getChildren().remove(l);
 		}
-		
 		bezierCurve.clear();
 		
 		Point2D last = calculateSubLinePositions(0);
@@ -234,6 +275,7 @@ public class LineManager {
 			line.setStroke(Color.RED);
 			line.setStrokeWidth(4);
 			line.setStrokeLineCap(StrokeLineCap.ROUND);
+			line.setStrokeLineJoin(StrokeLineJoin.ROUND);
 			
 			line.setStartX(last.getX());
 			line.setStartY(last.getY());

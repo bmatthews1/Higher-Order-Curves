@@ -12,8 +12,10 @@ import javafx.beans.value.ObservableValue;
 import javafx.event.ActionEvent;
 import javafx.event.EventHandler;
 import javafx.geometry.Orientation;
+import javafx.geometry.Rectangle2D;
 import javafx.scene.Scene;
 import javafx.scene.control.Button;
+import javafx.scene.control.CheckBox;
 import javafx.scene.control.Slider;
 import javafx.scene.input.MouseButton;
 import javafx.scene.input.MouseEvent;
@@ -23,6 +25,7 @@ import javafx.scene.layout.HBox;
 import javafx.scene.layout.Pane;
 import javafx.scene.layout.VBox;
 import javafx.scene.paint.Color;
+import javafx.stage.Screen;
 import javafx.stage.Stage;
 
 /**
@@ -37,19 +40,29 @@ public class HOCAnimation extends Application{
 	private Scene scene;
 	private Pane pane;
 	private LinkedList<ControlPoint> controlPoints;
+	
+	public CheckBox toggleSubLines;
+	public CheckBox toggleControlPoints;
+	public CheckBox togglePrimaryLines;
+	public CheckBox toggleBezierCurve;
+	
 	private Button reset;
 	private Button runAnimation;
-	private Button showSubLines;
 	private Button calculateBezier;
 	private Button randomPoints;
 	private Random random;
-	private Slider slider;
+	
+	public Slider slider;
+	public Slider tickRate;
 	private LineManager lineManager;
 	private AnimationTimer timer;
+	private boolean showingBezier = false;
+	private boolean animating = false;
 	
 	private long last;
-	private double counter;
-	private double cutoff;
+	private double counter = 0;
+	private double cutoff = 100;
+	private double tps = 30; //ticks per second 
 	
 	@Override
 	/**
@@ -58,8 +71,18 @@ public class HOCAnimation extends Application{
 	public void start(Stage stage) throws Exception {
 		initVars();
 		scene = new Scene(pane, 600, 600);
+		
+		Screen screen = Screen.getPrimary();
+		Rectangle2D bounds = screen.getVisualBounds();
+
+		stage.setX(bounds.getMinX());
+		stage.setY(bounds.getMinY());
+		stage.setWidth(bounds.getWidth());
+		stage.setHeight(bounds.getHeight());
+		
 		stage.setScene(scene);
 		stage.show();
+		timer.start();
 	}
 	
 	/**
@@ -72,9 +95,10 @@ public class HOCAnimation extends Application{
 		HBox hbox2 = new HBox();
 		VBox vbox = new VBox();
 		pane.setBackground(new Background(new BackgroundFill(Color.BLACK, null, null)));
-		runAnimation = new Button("run animation");
+		
+		//buttons
+		runAnimation = new Button("start animation");
 		reset = new Button("Reset");
-		showSubLines = new Button("show sub lines");
 		calculateBezier = new Button("calculate Bezier");
 		randomPoints = new Button("Generate Random Points");
 		
@@ -83,9 +107,32 @@ public class HOCAnimation extends Application{
 		slider.setMax(1);
 		slider.setMinWidth(400);
 		slider.setValue(.5);
+		
+		tickRate = new Slider();
+		tickRate.setOrientation(Orientation.HORIZONTAL);
+		tickRate.setMax(120);
+		tickRate.setMinWidth(400);
+		tickRate.setValue(30);
+		
+		//check boxes
+		toggleSubLines = new CheckBox("Sub Lines");
+		toggleSubLines.setTextFill(Color.WHITE);
+		toggleSubLines.setSelected(true);
+		
+		toggleControlPoints = new CheckBox("Control Points");
+		toggleControlPoints.setTextFill(Color.WHITE);
+		toggleControlPoints.setSelected(true);
+		
+		togglePrimaryLines = new CheckBox("Primary Lines");
+		togglePrimaryLines.setTextFill(Color.WHITE);
+		togglePrimaryLines.setSelected(true);
+		
+		toggleBezierCurve = new CheckBox("Bezier Curve Render");
+		toggleBezierCurve.setTextFill(Color.WHITE);
+		toggleBezierCurve.setSelected(true);
+		
 		hbox.getChildren().add(runAnimation);
 		hbox.getChildren().add(reset);
-		hbox.getChildren().add(showSubLines);
 		hbox.getChildren().add(slider);
 		
 		hbox2.getChildren().add(calculateBezier);
@@ -93,6 +140,11 @@ public class HOCAnimation extends Application{
 		
 		vbox.getChildren().add(hbox);
 		vbox.getChildren().add(hbox2);
+		vbox.getChildren().add(tickRate);
+		vbox.getChildren().add(toggleControlPoints);
+		vbox.getChildren().add(togglePrimaryLines);
+		vbox.getChildren().add(toggleSubLines);
+		vbox.getChildren().add(toggleBezierCurve);
 		
 		pane.getChildren().add(vbox);
 		controlPoints = new LinkedList<>();
@@ -115,6 +167,8 @@ public class HOCAnimation extends Application{
 					pane.getChildren().add(c);
 					lineManager.addLines();
 					lineManager.recalculate();
+//					lineManager.calculateBezierCurve(200);
+					lineManager.calculateSubLinePositions(.5);
                 }
             }
         });
@@ -135,35 +189,27 @@ public class HOCAnimation extends Application{
 		runAnimation.setOnAction(new EventHandler<ActionEvent>(){
 			@Override
 			public void handle(ActionEvent arg0) {
-				animate();
+				toggleAnimation();
 			}
 		});
 		
 		reset.setOnAction(new EventHandler<ActionEvent>(){
 			@Override
 			public void handle(ActionEvent arg0) {
-				if (timer != null) timer.stop();
 				for (ControlPoint c: controlPoints){
 					pane.getChildren().remove(c);
 				}
+				if (animating) toggleAnimation();
 				controlPoints.clear();
 				lineManager.clear();
-			}
-		});
-		
-		showSubLines.setOnAction(new EventHandler<ActionEvent>(){
-			@Override
-			public void handle(ActionEvent arg0) {
-				lineManager.showSubLines();
-				lineManager.calculateSubLinePositions(.5);
 			}
 		});
 		
 		calculateBezier.setOnAction(new EventHandler<ActionEvent>(){
 			@Override
 			public void handle(ActionEvent arg0) {
-				lineManager.calculateBezierCurve(500);
-				lineManager.showBezierCurve();
+				lineManager.calculateBezierCurve(200);
+				if (toggleBezierCurve.isScaleShape()) lineManager.showBezierCurve();
 			}
 		});
 		
@@ -174,10 +220,25 @@ public class HOCAnimation extends Application{
 			}
 		});
 		
+		slider.setOnMousePressed(new EventHandler<MouseEvent>(){
+			@Override
+			public void handle(MouseEvent arg0) {
+				animating = true;
+				toggleAnimation();
+			}
+		});
+		
+		tickRate.valueProperty().addListener(new ChangeListener<Number>(){
+			@Override
+			public void changed(ObservableValue<? extends Number> observable, Number oldValue, Number newValue) {
+				tps = newValue.doubleValue();
+				cutoff = (int)(((120- tps)/120)*75 + 25);
+			}
+		});
+		
 		randomPoints.setOnAction(new EventHandler<ActionEvent>(){
 			@Override
 			public void handle(ActionEvent arg0) {
-				if (timer != null) timer.stop();
 				int numPoints = random.nextInt(40) + 10;
 				lineManager.clear();
 				for (ControlPoint c : controlPoints){
@@ -191,43 +252,96 @@ public class HOCAnimation extends Application{
 					
 					ControlPoint c = new ControlPoint(x, y, lineManager);
 					controlPoints.add(c);
+					if (!toggleControlPoints.isSelected()) c.setVisible(false);
+					pane.getChildren().add(c);
 					lineManager.addLines();
 				}
 				lineManager.recalculate();
-				animate();
+				lineManager.calculateBezierCurve(200);
+				lineManager.calculateSubLinePositions(.5);
+				if (toggleSubLines.isSelected()) lineManager.showSubLines();
 			}
 		});
-	}
-	
-	private void animate(){
-//		lineManager.calculateBezierCurve(500);
-		lineManager.showSubLines();
-		lineManager.hidePrimaryLines();
 		
-		for (ControlPoint c : controlPoints){
-			c.setVisible(false);
-		}
+		toggleControlPoints.setOnAction(new EventHandler<ActionEvent>(){
+			@Override
+			public void handle(ActionEvent arg0) {
+				if (toggleControlPoints.isSelected()){
+					lineManager.showControlPoints();
+				} else {
+					lineManager.hideControlPoints();
+				}
+			}
+		});
 		
-		last = System.nanoTime();
-		counter = 0;
-		cutoff = 100;
+		togglePrimaryLines.setOnAction(new EventHandler<ActionEvent>(){
+			@Override
+			public void handle(ActionEvent arg0) {
+				if (togglePrimaryLines.isSelected()){
+					lineManager.showPrimaryLines();
+				} else {
+					lineManager.hidePrimaryLines();
+				}
+			}
+		});
+		
+		toggleSubLines.setOnAction(new EventHandler<ActionEvent>(){
+			@Override
+			public void handle(ActionEvent arg0) {
+				if (toggleSubLines.isSelected()){
+					lineManager.showSubLines();
+				} else {
+					lineManager.hideSubLines();
+				}
+			}
+		});
+		
+		toggleBezierCurve.setOnAction(new EventHandler<ActionEvent>(){
+			@Override
+			public void handle(ActionEvent arg0) {
+				if (toggleBezierCurve.isSelected()){
+					lineManager.showBezierCurve();
+				} else {
+					lineManager.hideBezierCurve();
+				}
+			}
+		});
 		
 		timer = new AnimationTimer(){
 			@Override
 			public void handle(long now) {
-				if ((now - last) > (1/60d)*1_000_000_000){
-					lineManager.calculateSubLinePositions(counter/cutoff);
-					last = now;
-					counter++;
-					
-				}
-				
-				if (counter > cutoff){
-					counter = 0;
+				if (animating) {
+					if ((now - last) > (1 /tps) * 1_000_000_000) {
+						lineManager.calculateSubLinePositions(counter / cutoff);
+						slider.setValue(counter / cutoff);
+						last = now;
+						counter++;
+
+					}
+					if (counter > cutoff) {
+						counter = 0;
+					} 
 				}
 			}
 		};
-		timer.start();
+	}
+	
+	/**
+	 * toggle the animation flag
+	 */
+	private void toggleAnimation(){
+		if (!animating){
+			for (ControlPoint c : controlPoints){
+				c.setVisible(false);
+			}
+			runAnimation.setText("pause animation");
+		} else {
+			for (ControlPoint c : controlPoints){
+				c.setVisible(true);
+			}
+			runAnimation.setText("start animation");
+		}
+		animating ^= true;
 	}
 	
 	/**
