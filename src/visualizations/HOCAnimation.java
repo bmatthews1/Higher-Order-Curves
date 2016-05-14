@@ -257,7 +257,7 @@ public class HOCAnimation extends Application{
 					lineManager.addLines();
 				}
 				lineManager.recalculate();
-				lineManager.calculateBezierCurve(200);
+				if (toggleBezierCurve.isSelected()) lineManager.calculateBezierCurve(200);
 				lineManager.calculateSubLinePositions(.5);
 				if (toggleSubLines.isSelected()) lineManager.showSubLines();
 			}

@@ -236,10 +236,10 @@ public class LineManager {
 		
 		Line line = lineLists.getLast().get(0);
 		
-		double x = line.getStartX() + (line.getEndX() - line.getStartX())/2;
-		double y = line.getStartY() + (line.getEndY() - line.getStartY())/2;
+		double x = line.getStartX() + (line.getEndX() - line.getStartX())*percent;
+		double y = line.getStartY() + (line.getEndY() - line.getStartY())*percent;
 		
-		double cuttoff = bezierCurve.size()*percent;
+		int cuttoff = (int) Math.round(bezierCurve.size()*percent);
 		
 		//TODO
 		if (showBezierCurve){
